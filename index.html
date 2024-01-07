@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload</title>
+
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+            transition: background-color 0.5s ease;
+        }
+
+        #container {
+            display: flex;
+            flex-direction: row; /* Arrange children in a row */
+        }
+
+        form {
+            max-width: 400px;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            transition: box-shadow 0.5s ease;
+            margin-right: 20px; /* Add margin for spacing */
+        }
+
+        #uploadResponse {
+            max-width: 400px;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            transition: box-shadow 0.5s ease;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        input[type="file"] {
+            border: 2px solid #ccc;
+            border-radius: 4px;
+            padding: 8px;
+            width: 95%;
+            transition: border-color 0.5s ease;
+        }
+
+        input[type="submit"] {
+            background-color: #4caf50;
+            color: #fff;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.5s ease;
+        }
+
+        input[type="submit"]:hover {
+            background-color: #45a049;
+        }
+
+        p.upload-site {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        p.upload-site::before {
+            content: "";
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0;
+            height: 2px;
+            background-color: #4caf50;
+            transition: all 0.5s ease;
+        }
+
+        p.upload-site:hover::before {
+            width: 100%;
+            left: 0;
+        }
+
+        /* Progress Bar Styles */
+        progress {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .progress-label {
+            text-align: center;
+            margin-top: 5px;
+        }
+
+        .processing-message {
+            text-align: center;
+            font-weight: bold;
+            color: #333;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .error-message {
+            color: #ff0000;
+            margin-top: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script>
+    $(document).ready(function () {
+        var randomR = Math.floor(Math.random() * 256);
+        var randomG = Math.floor(Math.random() * 256);
+        var randomB = Math.floor(Math.random() * 256);
+
+        var apiUrl = "https://php-noise.com/noise.php?r=" + randomR + "&g=" + randomG + "&b=" + randomB + "&tiles=50&tileSize=7&borderWidth=0&mode=mode-a&json";
+
+        $.get(apiUrl, function (data) {
+            var imageUrl = data.uri;
+
+            $('body').css({
+                'background-image': 'url(' + imageUrl + ')',
+                'background-size': 'cover',
+                'background-position': 'center',
+            });
+        });
+
+        // Intercept form submission
+        $('form').submit(function (event) {
+            event.preventDefault(); // Prevent the default form submission
+
+            if (!checkFileSize()) {
+                return false;
+            }
+
+            var formData = new FormData(this);
+
+            // Create an XMLHttpRequest object
+            var xhr = new XMLHttpRequest();
+
+            // Track the upload progress
+            xhr.upload.addEventListener('progress', function (event) {
+                if (event.lengthComputable) {
+                    var percentComplete = (event.loaded / event.total) * 100;
+                    $('progress').attr('value', percentComplete);
+                    $('.progress-label').text(percentComplete.toFixed(2) + '%');
+
+                    if (percentComplete === 100) {
+                        $('.processing-message').text('Data is being processed, please wait!');
+                        $('.processing-message').show();
+                    }
+                }
+            });
+
+            // Set up the AJAX request
+            xhr.open($(this).attr('method'), $(this).attr('action'), true);
+
+            // Set up the FormData object
+            xhr.send(formData);
+
+            // Handle the response
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    var response = JSON.parse(xhr.responseText);
+
+                    // Display the response in the respective text areas
+                    $('#config').val(response.config);
+                    $('#linkDownload').val(response.link);
+                    $('.error-message').text('File uploaded successful!'); // Clear any previous error messages
+                    $('.processing-message').hide();
+                } else {
+                    // Handle errors
+                    $('.error-message').text('Error code: ' + xhr.status);
+                    $('.processing-message').hide();
+                }
+            };
+        });
+    });
+</script>
+
+    <div id="container">
+        <form action="upload.php" method="post" enctype="multipart/form-data">
+            <p class="upload-site">Upload</p>
+            <p style="text-align: center; font-style: italic; color: #555;">File can be stored for 7 days</p>
+            <label for="file">Choose a file (max 128MB):</label>
+            <input type="file" name="file" id="file" onchange="updateFileInfo()">
+            <br>
+            <input type="submit" value="Upload File">
+            <div id="fileInfo" style="display: none;">
+                <h2>File Information:</h2>
+                <p><strong>Name:</strong> <span id="fileName"></span></p>
+                <p><strong>Size:</strong> <span id="fileSize"></span> MB</p>
+                <p><strong>Extension:</strong> <span id="fileExtension"></span></p>
+            </div>
+            <progress value="0" max="100"></progress>
+            <div class="progress-label">0%</div>
+            
+        </form>
+
+        <!-- Display the response here -->
+        <div id="uploadResponse">
+            <p class="upload-site">Download</p>
+            <p style="text-align: center; font-style: italic; color: #555;">File can be stored for 7 days</p>
+            <label for="linkDownload">Link download:</label>
+            <textarea id="linkDownload" rows="5" readonly></textarea>
+            <button id="copyButton">Copy Link Download</button>
+            <div class="processing-message"></div>
+            <div class="error-message"></div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById("copyButton").addEventListener("click", function () {
+            var copyText = document.getElementById("linkDownload").value;
+            copyToClipboard(copyText, "Link Download");
+        });
+
+        function copyToClipboard(text, label) {
+            var tempInput = document.createElement("textarea");
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempInput);
+            alert(label + " copied to clipboard");
+        }
+    </script>
+
+    <script>
+        function updateFileInfo() {
+            var input = document.getElementById('file');
+            var fileInfo = document.getElementById('fileInfo');
+            var fileNameSpan = document.getElementById('fileName');
+            var fileSizeSpan = document.getElementById('fileSize');
+            var fileExtensionSpan = document.getElementById('fileExtension');
+
+            if (input.files.length > 0) {
+                var fileSize = input.files[0].size; //Bytes
+
+                fileNameSpan.textContent = input.files[0].name;
+                fileSizeSpan.textContent = (fileSize / 1024 / 1024).toFixed(2); //MB
+                fileExtensionSpan.textContent = getFileExtension(input.files[0].name);
+
+                fileInfo.style.display = 'block';
+            } else {
+                fileInfo.style.display = 'none';
+            }
+        }
+
+        function checkFileSize() {
+            var input = document.getElementById('file');
+            var fileSize = input.files[0].size;
+            var maxSize = 128 * 1024 * 1024;
+
+            if (fileSize > maxSize) {
+                alert('File size exceeds the maximum allowed size (128MB). Please choose a smaller file.');
+                return false;
+            }
+
+            return true;
+        }
+
+        function getFileExtension(filename) {
+            return filename.slice((filename.lastIndexOf(".") - 1 >>> 0) + 2);
+        }
+    </script>
+</body>
+
+</html>
